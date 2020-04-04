@@ -1,6 +1,8 @@
 # MMM-PIR-Sensor (jheyman edition)
 This a custom stripped-down version of paviro's [MMM-PIR-sensor](https://github.com/paviro/MMM-PIR-Sensor) module for [MagicMirror](https://github.com/MichMich/MagicMirror). It monitors a PIR motion sensor to trigger a relay (which in my case is wired to the on/off button of a display), both being connected to GPIOs of a Raspberry Pi.
 
+![](wiring_overview.png)
+
 ## Installation
 1. Navigate into your MagicMirror's `modules` folder and execute `git clone https://github.com/jheyman/MMM-PIR-Sensor`. A new folder will appear navigate into it.
 2. Execute `npm install` to install the node dependencies.
