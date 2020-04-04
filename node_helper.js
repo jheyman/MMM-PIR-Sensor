@@ -1,6 +1,7 @@
 'use strict';
 
 /* Magic Mirror
+* Custom version by jheyman based on :
 * Module: MMM-PIR-Sensor
 *
 * By Paul-Vincent Roll http://paulvincentroll.com
@@ -16,130 +17,63 @@ module.exports = NodeHelper.create({
         this.started = false;
     },
 
-    activateMonitor: function () {
-        // If always-off is enabled, keep monitor deactivated
-        let alwaysOffTrigger = this.alwaysOff && (this.alwaysOff.readSync() === this.config.alwaysOffState)
-        if (alwaysOffTrigger) {
-            return;
-        }
-        // If relays are being used in place of HDMI
+    // Toggle the relay connected to the physical on/off button on the monitor front side
+    // Normal/manual use is a single push on the button, so emulate that with 100ms activation of the relay
+    pushMonitorOnOffButton: function () {
+        var self = this;
         if (this.config.relayPin !== false) {
-            this.relay.writeSync(this.config.relayState);
-        }
-        else if (this.config.relayPin === false) {
-            // Check if hdmi output is already on
-            exec("/usr/bin/vcgencmd display_power").stdout.on('data', function(data) {
-                if (data.indexOf("display_power=0") === 0)
-                    exec("/usr/bin/vcgencmd display_power 1", null);
-            });
+            console.log("trig relay");
+            self.relay.writeSync(1);
+            setTimeout(function(){
+                    self.relay.writeSync(0);
+            }, 100);
         }
     },
 
-    deactivateMonitor: function () {
-        // If always-on is enabled, keep monitor activated
-        let alwaysOnTrigger = this.alwaysOn && (this.alwaysOn.readSync() === this.config.alwaysOnState)
-        let alwaysOffTrigger = this.alwaysOff && (this.alwaysOff.readSync() === this.config.alwaysOffState)
-        if (alwaysOnTrigger && !alwaysOffTrigger) {
-            return;
-        }
-        // If relays are being used in place of HDMI
-        if (this.config.relayPin !== false) {
-            this.relay.writeSync((this.config.relayState + 1) % 2);
-        }
-        else if (this.config.relayPin === false) {
-            exec("/usr/bin/vcgencmd display_power 0", null);
-        }
-    },
-
-    // Subclass socketNotificationReceived received.
+    // notification from main app
     socketNotificationReceived: function (notification, payload) {
         if (notification === 'CONFIG' && this.started == false) {
             const self = this;
             this.config = payload;
+            // the module assumes that it will launched with display turned OFF.
+            let displayOn = false;
+            console.log("display OFF");
 
             // Setup for relay pin
-            if (this.config.relayPin) {
-                this.relay = new Gpio(this.config.relayPin, 'out');
-                this.relay.writeSync(this.config.relayState);
-                exec("/usr/bin/vcgencmd display_power 1", null);
-            }
+            this.relay = new Gpio(this.config.relayPin, 'out');
+            this.relay.writeSync(0);
 
-            // Setup for alwaysOn switch
-            if (this.config.alwaysOnPin) {
-                this.alwaysOn = new Gpio(this.config.alwaysOnPin, 'in', 'both');
-                const alwaysOnState = this.config.alwaysOnState
-                this.alwaysOn.watch(function (err, value) {
-                    if (value === alwaysOnState) {
-                        self.sendSocketNotification('ALWAYS_ON', true);
-                        self.sendSocketNotification('SHOW_ALERT', {
-                            title: 'Always-On Activated',
-                            message: 'Mirror will not activate power-saving mode',
-                            timer: 4000
-                        });
-                        if (self.config.powerSaving){
-                            clearTimeout(self.deactivateMonitorTimeout);
-                        }
-                    } else if (value === (alwaysOnState + 1) % 2) {
-                        self.sendSocketNotification('ALWAYS_ON', false);
-                        self.sendSocketNotification('SHOW_ALERT', {
-                            title: 'Always-On Deactivated',
-                            message: 'Mirror will now use motion sensor to activate',
-                            timer: 4000
-                        });
-                    }
-                })
-            }
+            // Setup for sensor pin : detect rising edge only, we only care about detecting start of
+            // user presence, the absence is managed by a timeout.
+            this.pir = new Gpio(this.config.sensorPin, 'in', 'rising');
 
-            // Setup for alwaysOff switch
-            if (this.config.alwaysOffPin) {
-                this.alwaysOff = new Gpio(this.config.alwaysOffPin, 'in', 'both');
-                const alwaysOffState = this.config.alwaysOffState
-                this.alwaysOff.watch(function (err, value) {
-                    if (value === alwaysOffState) {
-                        self.sendSocketNotification('ALWAYS_OFF', true);
-                        self.deactivateMonitor();
-                    } else if (value === (alwaysOffState + 1) % 2) {
-                        self.sendSocketNotification('ALWAYS_OFF', false);
-                        self.activateMonitor();
-                        if (self.config.powerSaving){
-                            clearTimeout(self.deactivateMonitorTimeout);
-                        }
-                    }
-                })
-            }
-
-            // Setup for sensor pin
-            this.pir = new Gpio(this.config.sensorPin, 'in', 'both');
-
-            // Setup value which represent on and off
-            const valueOn = this.config.sensorState;
-            const valueOff = (this.config.sensorState + 1) % 2;
-
-            // Detected movement
+            // Declare callback for PIR detection events
             this.pir.watch(function (err, value) {
-                if (value == valueOn) {
+                console.log("PIR detected user presence")
+                // First time user presence is detected after the previous timeout/sleep period, turn screen on
+                if (!displayOn) { 
                     self.sendSocketNotification('USER_PRESENCE', true);
-                    if (self.config.powerSaving){
-                        clearTimeout(self.deactivateMonitorTimeout);
-                        self.activateMonitor();
-                    }
-                }
-                else if (value == valueOff) {
-                    self.sendSocketNotification('USER_PRESENCE', false);
-                    if (!self.config.powerSaving){
-                        return;
-                    }
+                    self.pushMonitorOnOffButton();
+                    displayOn = true;
+                    console.log("display ON")
+                } else {
+                    console.log("PIR triggered but screen already ON, ignoring");
+                }                    
 
-                    self.deactivateMonitorTimeout = setTimeout(function() {
-                        self.deactivateMonitor();
-                    }, self.config.powerSavingDelay * 1000);
-                }
+                // (re)-start display timeout timer
+                clearTimeout(self.deactivateMonitorTimeout);
+                self.deactivateMonitorTimeout = setTimeout(function() {
+                    self.pushMonitorOnOffButton();
+                    displayOn = false;
+                    console.log("display OFF");
+                    self.sendSocketNotification('USER_PRESENCE', false);
+                }, self.config.powerSavingDelay * 1000);     
             });
 
             this.started = true;
 
         } else if (notification === 'SCREEN_WAKEUP') {
-            this.activateMonitor();
+            this.pushMonitorOnOffButton();
         }
     }
 
