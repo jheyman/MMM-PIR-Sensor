@@ -1,5 +1,5 @@
 # MMM-PIR-Sensor (jheyman edition)
-This a custom & minimal version of paviro's [MMM-PIR-sensor](https://github.com/paviro/MMM-PIR-Sensor) module for [MagicMirror](https://github.com/MichMich/MagicMirror). It monitors a PIR motion sensor to trigger a relay (which in my case is wired to the on/off button of a display), both being connected to GPIOs of a Raspberry Pi.
+This a custom stripped-down version of paviro's [MMM-PIR-sensor](https://github.com/paviro/MMM-PIR-Sensor) module for [MagicMirror](https://github.com/MichMich/MagicMirror). It monitors a PIR motion sensor to trigger a relay (which in my case is wired to the on/off button of a display), both being connected to GPIOs of a Raspberry Pi.
 
 ## Installation
 1. Navigate into your MagicMirror's `modules` folder and execute `git clone https://github.com/jheyman/MMM-PIR-Sensor`. A new folder will appear navigate into it.
@@ -41,13 +41,6 @@ The following properties can be configured:
 			</td>
 		</tr>
 		<tr>
-			<td><code>powerSavingDelay</code></td>
-			<td>Timeout delay (in seconds) after which the monitor will be turned off if no user presence is detected by the PIR sensor.<br>
-				<br><b>Possible values:</b> <code>int</code>
-				<br><b>Default value:</b> <code>10</code>
-			</td>
-		</tr>
-		<tr>
 			<td><code>relayPin</code></td>
 			<td>The GPIO pin your relay is connected to.<br>
 				<br><b>Possible values:</b> <code>int</code>
@@ -56,19 +49,12 @@ The following properties can be configured:
 			</td>
 		</tr>
 		<tr>
-			<td><code>powerSavingNotification</code></td>
-			<td>To display a notification before to switch screen off<br>
-				<br><b>Possible values:</b> <code>boolean</code>
-				<br><b>Default value:</b> <code>false</code>
-				<br><b>Note:</b> Need the default module "alert" to be declared on config.js file.
+			<td><code>powerSavingDelay</code></td>
+			<td>Timeout delay (in seconds) after which the monitor will be turned off if no user presence is detected by the PIR sensor.<br>
+				<br><b>Possible values:</b> <code>int</code>
+				<br><b>Default value:</b> <code>10</code>
 			</td>
-		</tr>
-		<tr>
-			<td><code>powerSavingMessage</code></td>
-			<td>Message notification to display before to switch screen off<br>
-				<br><b>Default value:</b> <code>"Monitor will be turned off by PIR module"</code>
-			</td>
-		</tr>
+		</tr>		
 	</tbody>
 </table>
 
