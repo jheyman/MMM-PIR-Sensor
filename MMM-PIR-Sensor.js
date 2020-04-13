@@ -15,17 +15,11 @@ Module.register('MMM-PIR-Sensor',{
 		relayPin: 15,
 		powerSavingDelay: 10,
 		powerSavingNotification: false,
-		powerSavingMessage: "Monitor will be turned off by PIR module", 
 	},
 
 	// internal notification from node_helper
 	socketNotificationReceived: function (notification, payload) {
 		if (notification === 'USER_PRESENCE') {
-			this.sendNotification(notification, payload)
-			if (payload === false && this.config.powerSavingNotification === true){
-				this.sendNotification("SHOW_ALERT",{type:"notification", message:this.config.powerSavingMessage});
-			}
-		} else if (notification === 'SHOW_ALERT') {
 			this.sendNotification(notification, payload)
 		}
 	},
